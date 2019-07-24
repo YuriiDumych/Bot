@@ -33,7 +33,7 @@ facebookController.setupWebserver( process.env.PORT || "8080",function(err,webse
 });
 
 
-facebookController.hears(['hello'], 'facebook_postback', function(bot, message) {
+facebookController.hears(['hello'], 'message_received', function(bot, message) {
 
   bot.reply(message, 'Hey there.');
 
