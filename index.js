@@ -6,6 +6,7 @@ var app = express();
 var bodyParser = require('body-parser');
 var router = express.Router();
 var http = require('http').Server(app);
+var bby = require('bestbuy')(process.env.BEST_BUY_API_KEY);
 
 
 require('dotenv').config()
@@ -45,7 +46,7 @@ facebookController.hears(['favorites'], 'message_received', function(bot, messag
 
 })
 facebookController.hears(['GET_STARTED'], 'facebook_postback', function(bot, message){
-  var questionText = 'Started'
+  var questionText = 'How can I help you?'
     var replies = [
       {
       "content_type":"text",
