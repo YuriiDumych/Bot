@@ -20,7 +20,8 @@ var botkit = require('botkit');
 
 var facebookController = botkit.facebookbot({
   verify_token: process.env.FB_VERIFY_TOKEN,
-  access_token: process.env.FB_ACCESS_TOKEN
+  access_token: process.env.FB_ACCESS_TOKEN,
+  stats_optout: true
 });
 
 var facebookBot = facebookController.spawn({});
