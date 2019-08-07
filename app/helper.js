@@ -3,16 +3,14 @@
 class BotHelpers {
 
   // Quick replies constructor
-  quickRepliesBuilder(data, pageNumber, modifier, notNext) {
+  quickRepliesBuilder(data, pageNumber, notNext) {
     let page = pageNumber;
     let names = [];
     if (page > 1) {
       let back = {
         'content_type': 'text',
         'title': '<<< Prev',
-        'payload': modifier === 'catalog' ?
-          `gotoCatalogPage=${page - 1}` : modifier === 'favorite' ?
-          `goToFavoritePage?=${page - 1}` : `show_products&page?=${page - 1}`
+        'payload': `gotoCatalogPage=${page - 1}` 
       };
       names.push(back);
     }
@@ -21,7 +19,7 @@ class BotHelpers {
         let content = {
           'content_type': 'text',
           'title': item.name,
-          'payload': `category?=${item.id}`
+          'payload': `category=${item.id}`
         };
         names.push(content);
       });
@@ -30,9 +28,7 @@ class BotHelpers {
       let next = {
         'content_type': 'text',
         'title': 'Next >>>',
-        'payload': modifier === 'catalog' ?
-          `gotoCatalogPage=${page + 1}` : modifier === 'favorite' ?
-          `goToFavoritePage?=${page + 1}` : `show_products&page?=${page + 1}`
+        'payload': `gotoCatalogPage=${page + 1}`
       };
       names.push(next);
     }
@@ -61,13 +57,12 @@ class BotHelpers {
     return names;
   }
 
-
   // buttons for product galery
   createProductsButtons(data, item) {
       return [{
           'type': 'postback',
           'title': data.length > 1 ? 'Detales' : 'BUY',
-          'payload':`product?=${item.sku}` 
+          'payload':`product=${item.sku}` 
         },
         {
           'type': 'postback',
@@ -82,6 +77,34 @@ class BotHelpers {
       ];
   }
 
+    // Create favorite galery
+    createFavoriteGalery(data) {
+      let elements = [];
+      data.forEach(item => {
+        let content = {
+          'title': item.name,
+          'image_url': item.image,
+          'buttons': [{
+            'type': 'postback',
+            'title': 'Detales',
+            'payload': `product=${item.sku}`
+          },
+          {
+            'type': 'postback',
+            'title': 'Main menu',
+            'payload': 'main_menu'
+          },
+          {
+            'type': 'postback',
+            'title': 'Delete',
+            'payload': `delete=${item.sku}`
+          }
+          ]
+        };
+        elements.push(content);
+      });
+      return elements;
+    }
 }
 
 module.exports = BotHelpers;

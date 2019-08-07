@@ -1,17 +1,19 @@
 require('dotenv').config()
 
 const bby = require('bestbuy')(`${process.env.BEST_BUY_API_KEY}`);
+
 const Helpers = require('./helper');
-const helpers = new Helpers();
 const Errors = require('./errors');
+const DB = require('./mongodb');
+
+const db = new DB();
+const helpers = new Helpers();
 const errorHelpers = new Errors();
 
 
-const BOT_CONFIG = {
+let BOT_CONFIG = {
   product: {},
-  catalogPageNumber: 1,
-  categoryPageNumber: 1,
-  productsPageNumber: 1,
+  catalogPageNumber: 1
 };
 
 module.exports = controller => {
@@ -67,11 +69,21 @@ module.exports = controller => {
     catalogBuilder(bot, message, BOT_CONFIG.catalogPageNumber);
   });
 
+  controller.hears(['My purchases', 'Favorites', 'Invite a friend'], 'message_received,facebook_postback', async(bot, message) => {
+      const arg = message.quick_reply ? message.quick_reply.payload : message.postback.payload;
+      switch (arg) {
+        case 'favorites':
+          getMyFavorites(bot, message);
+          break;
+      }
+
+  });
+
   controller.hears('(.*)', 'message_received,facebook_postback', async (bot, message) => {
     if (message.quick_reply) {
       const [arg, payload] = message.quick_reply.payload.split('=');
       switch (arg) {
-        case 'category?':
+        case 'category':
           await bby.products(`categoryPath.id=${payload}`, (err, data) => {
             if (err) {
               bot.reply(message, {
@@ -101,7 +113,7 @@ module.exports = controller => {
     if (message.postback) {
       const [arg, payload] = message.postback.payload.split('=');
       switch (arg) {
-        case 'product?':
+        case 'product':
           bby.products(+payload, (err, data) => {
             //     console.log('data',data)
             //     if (err) {
@@ -135,7 +147,61 @@ module.exports = controller => {
               }
             });
           })
+          break;
 
+
+        case 'favorite':
+         await db.checkFavorite(message.sender.id, payload)
+            .then(result => {
+                if (result) {
+                  bot.reply(message, {
+                    text: `"${result.name}"\nis already in favorite list`,
+                    quick_replies: [{
+                      'content_type': 'text',
+                      'title': 'Show favorites',
+                      'payload': 'favorites'
+                    }]
+                  });
+                  return Promise.reject()
+                } else if(!result){
+                  return db.addNewFavorite(message.sender.id, payload, message.timestamp);
+                }
+              })
+              .then(result => {
+                bot.reply(message, {
+                  text: 'Added to favorites',
+                  quick_replies: [{
+                    'content_type': 'text',
+                    'title': 'Show favorites',
+                    'payload': 'favorites'
+                  }]
+                });
+              })
+              .catch(error => {
+                if(error){
+                  bot.reply(message, {
+                    text: errorHelpers.dbError(error)
+                  });
+                }
+              })            
+          break;
+          case 'delete':
+              await db.deleteFavotire(payload)
+                      .then(result => {
+                        bot.reply(message, {
+                          text: 'Deleted from favorites',
+                          quick_replies: [{
+                            'content_type': 'text',
+                            'title': 'Show favorites',
+                            'payload': 'favorites'
+                          }]
+                        });
+                      })
+                      .catch(error => {
+                          bot.reply(message, {
+                            text: errorHelpers.dbError(error)
+                          });
+                      }) 
           break;
       }
     }
@@ -145,7 +211,7 @@ module.exports = controller => {
 ///// Catalog builder /////
 async function catalogBuilder(bot, message, pageNumber) {
   bby.categories('', {
-    pageSize: 4,
+    pageSize: 8,
     page: BOT_CONFIG.catalogPageNumber
   }, (err, data) => {
     if (err) {
@@ -159,10 +225,39 @@ async function catalogBuilder(bot, message, pageNumber) {
     } else {
       bot.reply(message, {
         text: 'Send catalogue',
-        quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, 'catalog', false)
+        quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, data.to == data.total ? true : false)
       });
     }
   })
 
 }
 
+///// Get favorites /////
+async function getMyFavorites(bot, message) {
+  await db.getFavorites(message.sender.id)
+    .then(result => {
+      if (!result.length) {
+        bot.reply(message, {
+          text: 'You have nothing in favorites yet'
+        });
+      } else {
+        bot.reply(message, {
+          attachment: {
+            'type': 'template',
+            'payload': {
+              'template_type': 'generic',
+              'elements': helpers.createFavoriteGalery(result)
+            }
+          }
+        });
+      }
+    })
+    .catch(error => {
+      bot.reply(message, {
+        text: errorHelpers.dbError(error)
+      });
+    })
+
+
+
+}
