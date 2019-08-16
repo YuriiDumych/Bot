@@ -1,9 +1,8 @@
 require('dotenv').config();
 
 function botSetup(controller) {
-
-    controller.api.thread_settings.greeting("WELCOME TO BOTKIT CHAT");
-    controller.api.thread_settings.get_started('GET_STARTED');
+    controller.api.messenger_profile.greeting("WELCOME TO BOTKIT CHAT");
+    controller.api.messenger_profile.get_started('GET_STARTED');
     controller.api.messenger_profile.menu(
     [
       { 
