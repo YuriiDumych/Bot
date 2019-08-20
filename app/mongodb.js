@@ -1,4 +1,4 @@
-const Favorite = require('./models/favorites');
+const Favorite = require('./models/favorite');
 const Purchase = require('./models/purchase');
 const User = require('./models/user');
 const Rating = require('./models/rating');
@@ -29,8 +29,8 @@ class DB{
   }
 
   //Delete item from favorites
-  deleteFavotire(sku){
-    return Favorite.findOneAndDelete({'sku': sku})
+  deleteFavotire(userId, sku){
+    return Favorite.findOneAndDelete({'userId': userId, 'sku': sku})
   }
 
   // Save purchase
@@ -87,7 +87,7 @@ class DB{
 
   //Delete cron
   deleteCron(userId){
-    return Cron.deleteOne({'userId': userId})
+    return Cron.findOneAndDelete({'userId': userId}, {sort: {'time': 1}})
   }
   // Check if rate exists 
   checkRate(userId){

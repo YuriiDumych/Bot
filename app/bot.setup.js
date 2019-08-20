@@ -1,9 +1,9 @@
 require('dotenv').config();
 
 function botSetup(controller) {
-    controller.api.messenger_profile.greeting("WELCOME TO BOTKIT CHAT");
-    controller.api.messenger_profile.get_started('GET_STARTED');
-    controller.api.messenger_profile.menu(
+    controller.api.thread_settings.greeting("WELCOME TO BOTKIT CHAT");
+    controller.api.thread_settings.get_started('GET_STARTED');
+    controller.api.thread_settings.menu(
     [
       { 
         "locale":"default", 
@@ -48,7 +48,6 @@ function botSetup(controller) {
       { "locale":"zh_CN", "composer_input_disabled":false }
     ]
   );
-
 }
 
 module.exports = botSetup;

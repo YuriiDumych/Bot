@@ -1,10 +1,10 @@
 require('dotenv').config()
 
+const to = require('await-to-js').default;
 const Helpers = require('./helper');
 const Errors = require('./errors');
 const DB = require('./mongodb');
 const BestBuy = require('./bestbuy');
-const cron = require('node-cron');
 
 const bestbuy = new BestBuy();
 const db = new DB();
@@ -16,90 +16,70 @@ let BOT_CONFIG = {
   catalogPageNumber: 1
 };
 
-module.exports = (controller, facebookBot) => {
-  cron.schedule('* * */8 * * *', () => {
-    db.getCrons()
-      .then(data => {
-        if(data.length){
-          data.forEach(item => {
-            if(new Date() > item.time){
-              facebookBot.say({
-                channel: item.userId,
-                text: 'Please rate the product\nHow do you estimate, recommend our product to your friends?', 
-                quick_replies: helpers.rating()
-              })
-            }
-          })
-        }
-      })
-      .catch(err => {
-        facebookBot.say(message, {
-          text: errorHelpers.dbError(err)
-        });
-      })
-  });
+module.exports = controller => {
 
-  controller.hears(['GET_STARTED', 'Почати'], 'facebook_postback', async (bot, message) => {
+  controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'facebook_postback', async (bot, message) => {
     let FBuser;
-    await bot.getMessageUser(message)
-      .then(data => FBuser = data)
-      .catch(err => FBuser = '')
-
+    const [err, data] = await to(bot.getMessageUser(message));
+    if (err) FBuser = '';
+    else {
+      FBuser = data
+    };
     if (message.referral) {
       console.log('ref2')
-      await db.areYouReferralFirstTime(message.sender.id)
-        .then(user => {
-          if (user) {
-            bot.reply(message, {
-              text: 'You are already registered!\nYou cannot use referral twice!',
-              quick_replies: helpers.greetingMenu()
-            });
-            return Promise.reject();
-          } else {
-            return db.saveNewUser(message.sender.id)
-          }
-        })
-        .then(newUser => {
-          return db.pushToReferrals(message.referral.ref, message.sender.id)
-        })
-        .then(result => {
-          referrals(FBuser, bot, message, 'ref');
-        })
-        .catch(err => {
+      const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
+      if(err){
+        bot.reply(message, {
+          text: errorHelpers.dbError(err)
+        });
+      } else if (user) {
+        bot.reply(message, {
+          text: 'You are already registered!\nYou cannot use referral twice!',
+          quick_replies: helpers.greetingMenu()
+        });
+      } else {
+        const [err, newUser] = await to(db.saveNewUser(message.sender.id))
+        if(err){
+          bot.reply(message, {
+            text: errorHelpers.dbError(err)
+          });
+        } else {
+          const [err, pushToReferrals] = await to(db.pushToReferrals(message.referral.ref, message.sender.id))
           if(err){
             bot.reply(message, {
               text: errorHelpers.dbError(err)
             });
+          } else{
+            referrals(FBuser, bot, message, 'ref');
           }
-        })
+        }
+      }
     } else {
       console.log('ref')
-      await db.areYouReferralFirstTime(message.sender.id)
-        .then(user => {
-          if (!user) {
-            return db.saveNewUser(message.sender.id)
-          } else {
-            referrals(FBuser, bot, message, 'notRef');
-            return Promise.reject();
-          }
-        })
-        .then(result => {
+      const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
+      if(err){
+        bot.reply(message, {
+          text: errorHelpers.dbError(err)
+        });
+      } else if (!user) {
+        const [err, newUser] = await to(db.saveNewUser(message.sender.id))
+        if(err){
+          bot.reply(message, {
+            text: errorHelpers.dbError(err)
+          });
+        } else {
           bot.reply(message, {
             text: `Hi, ${FBuser.first_name}!`,
             quick_replies: helpers.greetingMenu()
           });
-        })
-        .catch(err => {
-          if (err) {
-            bot.reply(message, {
-              text: errorHelpers.dbError(err)
-            });
-          }
-        })
+        }
+      } else {
+        referrals(FBuser, bot, message, 'notRef');
+      }
     }
   })
 
-  controller.hears(['main_menu'], 'facebook_postback', async(bot, message) => {
+  controller.hears(['main_menu'], 'facebook_postback', async (bot, message) => {
     await bot.reply(message, {
       text: 'Menu',
       quick_replies: helpers.greetingMenu()
@@ -139,27 +119,26 @@ module.exports = (controller, facebookBot) => {
         getMyPurchases(bot, message, 0);
         break;
       case 'invite':
-          controller.api.messenger_profile.get_messenger_code(2000, (err, url) => {
-            if (err) {
-              throw (err);
-            } else {
-              bot.reply(message, {
-                text: `Send link or image to 3 friend, and get one product for free!`
-              });
-              bot.reply(message, {
-                text: `${process.env.BOT_URI}?ref=${message.sender.id}`
-              });
-              bot.reply(message, {
-                attachment: {
-                  'type': 'image',
-                  'payload': {
-                    url
-                  }
-                }
-              });
-            }
-          }, 'billboard-ad');
-          break;
+        controller.api.messenger_profile.get_messenger_code(2000, (err, url) => {
+          console.log('url', url)
+          if (err) {
+            throw (err);
+          } else {
+            bot.reply(message, {
+              text: `Send link or image to 3 friend, and get one product for free!`
+            });
+            bot.reply(message, {
+              text: `${process.env.BOT_URI}?ref=${message.sender.id}`
+            });
+            bot.reply(message, {
+              attachment: {
+                'type': 'image',
+                'payload': {url}
+              }
+            });
+          }
+        }, message.sender.id);
+        break;
     }
   });
 
@@ -178,22 +157,23 @@ module.exports = (controller, facebookBot) => {
         if (response && response.attachments) {
           BOT_CONFIG.product.coordinates = response.attachments[0].payload.coordinates;
           BOT_CONFIG.product.timestamp = response.timestamp;
-          db.savePurchase(BOT_CONFIG.product)
-            .then(save => {
-              convo.say('Our courier will contact you within 2 hours');
-              convo.next();
-            })
-            .catch(err => {
-              bot.reply(message, {
-                text: errorHelpers.dbError(err)
-              });
-            })
-          db.addCron(message.sender.id, response.timestamp)
-            .catch(err => {
-              bot.reply(message, {
-                text: errorHelpers.dbError(err)
-              });
-            })
+          let [err, data] = await to(db.savePurchase(BOT_CONFIG.product))
+          if(err){
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          } else{
+            convo.say('Our courier will contact you within 2 hours');
+          }
+          [err, data] = await to(db.addCron(message.sender.id, response.timestamp))
+          if(err){
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          }else {
+            convo.next();
+          }
+
         } else {
           convo.next();
         }
@@ -205,130 +185,133 @@ module.exports = (controller, facebookBot) => {
 
   controller.hears('(.*)', 'message_received,facebook_postback', async (bot, message) => {
     if (message.quick_reply) {
+      let err, response;
       const [arg, payload] = message.quick_reply.payload.split('=');
       switch (arg) {
         case 'product_in_purchased':
-          await bestbuy.getProductDetales(payload)
-            .then(response => {
-              bot.reply(message, {
-                attachment: {
-                  'type': 'template',
-                  'payload': {
-                    'template_type': 'generic',
-                    'elements': helpers.createProductsGalery([response], true)
-                  }
+          [err, response] = await to(bestbuy.getProductDetales(payload))
+          if (err) {
+            bot.reply(message, {
+              text: errorHelpers.bestBuyError(err)
+            });
+          } else {
+            bot.reply(message, {
+              attachment: {
+                'type': 'template',
+                'payload': {
+                  'template_type': 'generic',
+                  'elements': helpers.createProductsGalery([response], true)
                 }
-              });
-            })
-            .catch(err => {
-              bot.reply(message, {
-                text: errorHelpers.bestBuyError(err)
-              });
-            })
+              }
+            });
+          }
           break;
         case 'category':
-          await bestbuy.getProductsFromCatalog(payload)
-            .then(data => {
-              if (!data.products.length) {
-                bot.reply(message, {
-                  text: 'This catalog is currently empty, please try another',
-                });
-              } else {
-                bot.reply(message, {
-                  attachment: {
-                    'type': 'template',
-                    'payload': {
-                      'template_type': 'generic',
-                      'elements': helpers.createProductsGalery(data.products, false)
-                    }
-                  }
-                });
+          [err, response] = await to(bestbuy.getProductsFromCatalog(payload))
+          if (err) {
+            bot.reply(message, {
+              text: errorHelpers.bestBuyError(err)
+            });
+          } else if (!response.products.length) {
+            bot.reply(message, {
+              text: 'This catalog is currently empty, please try another',
+            });
+          } else {
+            bot.reply(message, {
+              attachment: {
+                'type': 'template',
+                'payload': {
+                  'template_type': 'generic',
+                  'elements': helpers.createProductsGalery(response.products, false)
+                }
               }
-            })
-            .catch(err => {
-              bot.reply(message, {
-                text: errorHelpers.bestBuyError(err)
-              });
-            })
+            });
+          }
           break;
         case 'rate':
-          await db.checkRate(message.sender.id)
-            .then(result => {
-              if(!result){
-                return db.addRate(message.sender.id, +payload)
-              } else {
-                return db.updateRate(message.sender.id, +payload)
-              }
-            })
-            .then(result => {
-              bot.reply(message, {
-                text: 'Thank you!'
-              });
-              return db.deleteCron(message.sender.id)
-            })
-            .catch(err => {
+          [err, response] = await to(db.checkRate(message.sender.id))
+          if (err) {
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          } else if (!response) {
+            [err, response] = await to(db.addRate(message.sender.id, +payload))
+            if (err) {
               bot.reply(message, {
                 text: errorHelpers.dbError(err)
               });
-            })
-          // await db.deleteCron(message.sender.id)
-          //   .catch(err => {
-          //     bot.reply(message, {
-          //       text: errorHelpers.dbError(err)
-          //     });
-          //   })
-        break;
+            }
+          } else {
+            [err, response] = await to(db.updateRate(message.sender.id, +payload))
+            if (err) {
+              bot.reply(message, {
+                text: errorHelpers.dbError(err)
+              });
+            }
+          }
+          bot.reply(message, {
+            text: 'Thank you!'
+          });
+          [err, response] = await to(db.deleteCron(message.sender.id))
+          if (err) {
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          }
+          break;
       }
     }
     if (message.postback) {
       const [arg, payload] = message.postback.payload.split('=');
+      let err, response;
       switch (arg) {
         case 'product':
-          await bestbuy.getProductDetales(payload)
-            .then(data => {
-              if (data === undefined) {
-                bot.reply(message, {
-                  text: 'No such product'
-                });
-              } else {
-                BOT_CONFIG.product.sku = data.sku;
-                BOT_CONFIG.product.userId = message.sender.id;
-                bot.reply(message, {
-                  attachment: {
-                    'type': 'template',
-                    'payload': {
-                      'template_type': 'generic',
-                      'elements': helpers.createProductsGalery([data], false)
-                    }
-                  }
-                });
+          [err, response] = await to(bestbuy.getProductDetales(payload))
+          if(err){
+            bot.reply(message, {
+              text: errorHelpers.bestBuyError(err)
+            });
+          } else if (!response) {
+            bot.reply(message, {
+              text: 'No such product'
+            });
+          } else {
+            BOT_CONFIG.product.sku = response.sku;
+            BOT_CONFIG.product.userId = message.sender.id;
+            bot.reply(message, {
+              attachment: {
+                'type': 'template',
+                'payload': {
+                  'template_type': 'generic',
+                  'elements': helpers.createProductsGalery([response], false)
+                }
               }
-            })
-            .catch(err => {
-              bot.reply(message, {
-                text: errorHelpers.bestBuyError(err)
-              });
-            })
+            });
+          }
           break;
 
         case 'favorite':
-          await db.checkFavorite(message.sender.id, payload)
-            .then(result => {
-              if (result) {
-                bot.reply(message, {
-                  text: `"${result.name}"\nis already in favorite list`,
-                  quick_replies: [{
-                    'content_type': 'text',
-                    'title': 'Show favorites',
-                    'payload': 'favorites'
-                  }]
-                });
-                return Promise.reject()
-              } else {
-                return db.addNewFavorite(message.sender.id, payload, message.timestamp);
-              }
-            })
-            .then(result => {
+          [err, response] = await to(db.checkFavorite(message.sender.id, payload))
+          if(err){
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          } else if (response) {
+            bot.reply(message, {
+              text: `"${response.name}"\nis already in favorite list`,
+              quick_replies: [{
+                'content_type': 'text',
+                'title': 'Show favorites',
+                'payload': 'favorites'
+              }]
+            });
+          } else {
+            [err, response] = await to(db.addNewFavorite(message.sender.id, payload, message.timestamp))
+            if(err){
+              bot.reply(message, {
+                text: errorHelpers.dbError(err)
+              });
+            } else {
               bot.reply(message, {
                 text: 'Added to favorites',
                 quick_replies: [{
@@ -337,35 +320,28 @@ module.exports = (controller, facebookBot) => {
                   'payload': 'favorites'
                 }]
               });
-            })
-            .catch(error => {
-              if (error) {
-                bot.reply(message, {
-                  text: errorHelpers.dbError(error)
-                });
-              }
-            })
+            }
+          }
           break;
         case 'delete':
-          await db.deleteFavotire(payload)
-            .then(result => {
-              bot.reply(message, {
-                text: 'Deleted from favorites',
-                quick_replies: [{
-                  'content_type': 'text',
-                  'title': 'Show favorites',
-                  'payload': 'favorites'
-                }]
-              });
-            })
-            .catch(error => {
-              bot.reply(message, {
-                text: errorHelpers.dbError(error)
-              });
-            })
+          [err, response] = await to(db.deleteFavotire(message.sender.id, payload))
+          if(err){
+            bot.reply(message, {
+              text: errorHelpers.dbError(err)
+            });
+          } else {
+            bot.reply(message, {
+              text: 'Deleted from favorites',
+              quick_replies: [{
+                'content_type': 'text',
+                'title': 'Show favorites',
+                'payload': 'favorites'
+              }]
+            });
+          }
           break;
         case 'share_number':
-          bot.reply(message, {
+          await bot.reply(message, {
             text: 'Share your phone number',
             quick_replies: [{
               'content_type': 'user_phone_number'
@@ -381,111 +357,101 @@ module.exports = (controller, facebookBot) => {
 
 ///// Catalog builder /////
 async function catalogBuilder(bot, message, pageNumber) {
-  await bestbuy.getCatalog(pageNumber)
-    .then(data => {
-      if (!data.categories.length) {
-        bot.reply(message, {
-          text: 'There are no categories in this catalogue'
-        });
-      } else {
-        bot.reply(message, {
-          text: 'Send catalogue',
-          quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, data.to == data.total ? true : false)
-        });
-      }
-    })
-    .catch(err => {
-      bot.reply(message, {
-        text: errorHelpers.bestBuyError(err)
-      });
-    })
+  const [err, data] = await to(bestbuy.getCatalog(pageNumber))
+  if (err) {
+    bot.reply(message, {
+      text: errorHelpers.bestBuyError(err)
+    });
+  } else if (!data.categories.length) {
+    bot.reply(message, {
+      text: 'There are no categories in this catalogue'
+    });
+  } else {
+    bot.reply(message, {
+      text: 'Send catalogue',
+      quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, data.to == data.total ? true : false)
+    });
+  }
 }
 
 ///// Get favorites /////
 async function getMyFavorites(bot, message) {
-  await db.getFavorites(message.sender.id)
-    .then(result => {
-      if (!result.length) {
-        bot.reply(message, {
-          text: 'You have nothing in favorites yet'
-        });
-      } else {
-        bot.reply(message, {
-          attachment: {
-            'type': 'template',
-            'payload': {
-              'template_type': 'generic',
-              'elements': helpers.createFavoriteGalery(result)
-            }
-          }
-        });
+  const [err, result] = await to(db.getFavorites(message.sender.id))
+  if (err) {
+    bot.reply(message, {
+      text: errorHelpers.dbError(err)
+    });
+  } else if (!result.length) {
+    bot.reply(message, {
+      text: 'You have nothing in favorites yet'
+    });
+  } else {
+    bot.reply(message, {
+      attachment: {
+        'type': 'template',
+        'payload': {
+          'template_type': 'generic',
+          'elements': helpers.createFavoriteGalery(result)
+        }
       }
-    })
-    .catch(error => {
-      bot.reply(message, {
-        text: errorHelpers.dbError(error)
-      });
-    })
+    });
+  }
 }
 
 ///// Get purchases /////
 async function getMyPurchases(bot, message, prchOffset) {
   let notNext = false;
-  db.getPurchases(message.sender.id, prchOffset)
-    .then(purchases => {
-      if (purchases.length < 8) notNext = true;
-      if (!purchases.length) {
-        bot.reply(message, {
-          text: 'You have no purchases yet'
-        });
-      } else {
-        bot.reply(message, {
-          text: 'Purchases list',
-          quick_replies: helpers.getMyPurchases(purchases, prchOffset, notNext)
-        });
-      }
-    })
-    .catch(err => {
-      bot.reply(message, {
-        text: errorHelpers.dbError(err)
-      });
-    })
+  const [err, purchases] = await to(db.getPurchases(message.sender.id, prchOffset));
+  if (purchases.length < 8) notNext = true;
+  if (err) {
+    bot.reply(message, {
+      text: errorHelpers.dbError(err)
+    });
+  } else if (!purchases.length) {
+    bot.reply(message, {
+      text: 'You have no purchases yet'
+    });
+  } else {
+    bot.reply(message, {
+      text: 'Purchases list',
+      quick_replies: helpers.getMyPurchases(purchases, prchOffset, notNext)
+    });
+  }
 }
 
 ///// Referrals /////
 async function referrals(FBuser, bot, message, keyword) {
-  db.getReferrals(keyword === 'ref' ? message.referral.ref : message.sender.id)
-    .then(referrals => {
-      let refCounter = referrals.referrals.length;
-      if (keyword === 'ref') {
-        if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
-        if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
-          bot.say({
-            channel: message.referral.ref,
-            text: `Congratulations, you have involved 3 new user\nNavigate to "Main menu" to get your bonus`
-          });
-        }
+  const [err, referrals] = await to(db.getReferrals(keyword === 'ref' ? message.referral.ref : message.sender.id));
+  if (err) {
+    bot.reply(message, {
+      text: errorHelpers.dbError(err)
+    });
+  } else {
+    let refCounter = referrals.referrals.length;
+    if (keyword === 'ref') {
+      if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
+      if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
+        bot.say({
+          channel: message.referral.ref,
+          text: `Congratulations, you have involved 3 new user\nNavigate to "Main menu" to get your bonus`
+        });
+      }
+      bot.reply(message, {
+        attachment: helpers.congrats(`Hi, ${FBuser.first_name}, congrats! You have activated promo link. Get some bonuses!`)
+      });
+    } else {
+      if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
+      if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
+        BOT_CONFIG.dismiss = false;
         bot.reply(message, {
-          attachment: helpers.congrats(`Hi, ${FBuser.first_name}, congrats! You have activated promo link. Get some bonuses!`)
+          attachment: helpers.congrats(`Congratulations, ${FBuser.first_name}, you have involved 3 new user. Get a product for free!`)
         });
       } else {
-        if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
-        if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
-          BOT_CONFIG.dismiss = false;
-          bot.reply(message, {
-            attachment: helpers.congrats(`Congratulations, ${FBuser.first_name}, you have involved 3 new user. Get a product for free!`)
-          });
-        } else {
-          bot.reply(message, {
-            text: `Welcome back, ${FBuser.first_name}! Nice to see you again!`,
-            quick_replies: helpers.greetingMenu()
-          });
-        }
+        bot.reply(message, {
+          text: `Welcome back, ${FBuser.first_name}! Nice to see you again!`,
+          quick_replies: helpers.greetingMenu()
+        });
       }
-    })
-    .catch(err => {
-      bot.reply(message, {
-        text: errorHelpers.dbError(err)
-      });
-    })
+    }
+  }
 }
