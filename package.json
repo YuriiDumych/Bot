@@ -2,7 +2,7 @@
   "name": "botkit",
   "version": "1.0.0",
   "description": "facebook bot",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
