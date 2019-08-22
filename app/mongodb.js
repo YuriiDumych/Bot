@@ -24,8 +24,8 @@ class DB{
   }
 
   // Fetch list of favoretes from DB
-  getFavorites(userId) {
-    return Favorite.find({ 'userId': userId }).sort({ timestamp: 'desc' })
+  getFavorites(userId, pageNumber) {
+    return Favorite.find({ 'userId': userId }).sort({ timestamp: 'desc' }).skip((pageNumber - 1) * 8).limit(8);
   }
 
   //Delete item from favorites

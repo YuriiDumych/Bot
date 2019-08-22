@@ -13,7 +13,9 @@ const errorHelpers = new Errors();
 
 let BOT_CONFIG = {
   product: {},
-  catalogPageNumber: 1
+  catalogPageNumber: 1,
+  productsPageNumber: 1,
+  productId: ''
 };
 
 module.exports = controller => {
@@ -100,7 +102,13 @@ module.exports = controller => {
       case 'prchOffset':
         getMyPurchases(bot, message, +page);
         break;
-    }
+      case 'goToProductsPage': 
+        BOT_CONFIG.productsPageNumber = +page;
+        productsBuilder(bot, message, BOT_CONFIG.productsPageNumber, BOT_CONFIG.productId)
+        break;
+      case 'goToFavoritePage':
+        getMyFavorites(bot, message, page)
+      }
 
   });
 
@@ -113,14 +121,13 @@ module.exports = controller => {
     const arg = message.quick_reply ? message.quick_reply.payload : message.postback.payload;
     switch (arg) {
       case 'favorites':
-        getMyFavorites(bot, message);
+        getMyFavorites(bot, message, 1);
         break;
       case 'purchases':
         getMyPurchases(bot, message, 0);
         break;
       case 'invite':
         controller.api.messenger_profile.get_messenger_code(2000, (err, url) => {
-          console.log('url', url)
           if (err) {
             throw (err);
           } else {
@@ -207,26 +214,9 @@ module.exports = controller => {
           }
           break;
         case 'category':
-          [err, response] = await to(bestbuy.getProductsFromCatalog(payload))
-          if (err) {
-            bot.reply(message, {
-              text: errorHelpers.bestBuyError(err)
-            });
-          } else if (!response.products.length) {
-            bot.reply(message, {
-              text: 'This catalog is currently empty, please try another',
-            });
-          } else {
-            bot.reply(message, {
-              attachment: {
-                'type': 'template',
-                'payload': {
-                  'template_type': 'generic',
-                  'elements': helpers.createProductsGalery(response.products, false)
-                }
-              }
-            });
-          }
+          BOT_CONFIG.productsPageNumber = 1;
+          BOT_CONFIG.productId = payload;
+          productsBuilder(bot, message, BOT_CONFIG.productsPageNumber, BOT_CONFIG.productId)
           break;
         case 'rate':
           [err, response] = await to(db.checkRate(message.sender.id))
@@ -344,7 +334,7 @@ module.exports = controller => {
           await bot.reply(message, {
             text: 'Share your phone number',
             quick_replies: [{
-              'content_type': 'user_phone_number'
+                'content_type': 'user_phone_number'
             }],
             payload: 'user_phone'
           });
@@ -369,14 +359,41 @@ async function catalogBuilder(bot, message, pageNumber) {
   } else {
     bot.reply(message, {
       text: 'Send catalogue',
-      quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, data.to == data.total ? true : false)
+      quick_replies: helpers.quickRepliesBuilder(data.categories, BOT_CONFIG.catalogPageNumber, 'catalog', data.to == data.total ? true : false)
     });
   }
 }
 
+///// Products builder ////
+async function productsBuilder(bot, message, page, id){
+  [err, response] = await to(bestbuy.getProductsFromCatalog(id, page))
+  if (err) {
+    bot.reply(message, {
+      text: errorHelpers.bestBuyError(err)
+    });
+  } else if (!response.products.length) {
+    bot.reply(message, {
+      text: 'This catalog is currently empty, please try another',
+    });
+  } else {
+    bot.reply(message, {
+      attachment: {
+        'type': 'template',
+        'payload': {
+          'template_type': 'generic',
+          'elements': helpers.createProductsGalery(response.products, false, BOT_CONFIG.productsPageNumber)
+        }
+      }
+    });
+    prevNext(bot, message, 'product', BOT_CONFIG.productsPageNumber, response.to === response.total ? true : false);
+  }
+}
+
 ///// Get favorites /////
-async function getMyFavorites(bot, message) {
-  const [err, result] = await to(db.getFavorites(message.sender.id))
+async function getMyFavorites(bot, message, page) {
+  let notNext = false;
+  const [err, result] = await to(db.getFavorites(message.sender.id, page))
+  if(result.length < 8) notNext = true;
   if (err) {
     bot.reply(message, {
       text: errorHelpers.dbError(err)
@@ -395,6 +412,7 @@ async function getMyFavorites(bot, message) {
         }
       }
     });
+    prevNext(bot, message, 'favorite', page, notNext);
   }
 }
 
@@ -454,4 +472,14 @@ async function referrals(FBuser, bot, message, keyword) {
       }
     }
   }
+}
+
+///// Prev Next navigation
+function prevNext(bot, message, modifier, pageNumber, notNext) {
+  setTimeout(() => {
+    bot.reply(message, {
+      text: 'Use navigation buttons below',
+      quick_replies: helpers.quickRepliesBuilder(false, pageNumber, modifier, notNext)
+    });
+  }, 1000);
 }

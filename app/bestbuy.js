@@ -8,8 +8,8 @@ class BestBuy{
         return bby.categories('', {page: page, pageSize: 8})
      }
     //products
-    getProductsFromCatalog(id){
-        return bby.products(`categoryPath.id=${id}`)
+    getProductsFromCatalog(id, pageNumber){
+        return bby.products(`categoryPath.id=${id}`, {page: pageNumber, pageSize: 8})
     }
     //dateles
     getProductDetales(sku){

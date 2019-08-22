@@ -50,15 +50,15 @@ describe('bestbuy', () => {
     })
     describe('getProductsFromCatalog', () => {
         it('should have property "products"', () => {
-            bby.getProductsFromCatalog('abcat0101000')
+            bby.getProductsFromCatalog('abcat0101000', 1)
                 .then(res => assert.property(res, 'products'))
         })  
         it('should return array of products', () => {
-            bby.getProductsFromCatalog('abcat0101000')
+            bby.getProductsFromCatalog('abcat0101000', 1)
                 .then(data => assert(Array.isArray(data.products)))
         })
         it('should return empty array', () => {
-            bby.getProductsFromCatalog('foo')
+            bby.getProductsFromCatalog('foo', 1)
                 .then(data => assert.equal(data.products.length, 0))
         })
         it('should be called once', () => {
@@ -67,7 +67,7 @@ describe('bestbuy', () => {
             assert(bby.getProductsFromCatalog.calledOnce)
         })
         it('should be fulfilled', () => {
-            const promise = bby.getProductsFromCatalog('abcat0101000')
+            const promise = bby.getProductsFromCatalog('abcat0101000', 1)
             assert.isFulfilled(promise)
         });
 
@@ -197,7 +197,7 @@ describe('database', () => {
         })
         it('should delete cron', () => {
             database.deleteCron('12345')
-            .then(res => assert.propertyVal(res, 'deletedCount', 1))
+            .then(res => assert.propertyVal(res, 'userId', '12345'))
             .catch(err => assert.notExists(err))        
         })
     })

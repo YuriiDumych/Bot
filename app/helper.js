@@ -2,39 +2,41 @@
 
 class BotHelpers {
   //Greeting
-  greetingMenu(){
+  greetingMenu() {
     return [{
-      "content_type": "text",
-      "title": 'My purchases',
-      "payload": 'purchases'
-    },
-    {
-      "content_type": "text",
-      "title": 'Shop',
-      "payload": 'shop'
-    },
-    {
-      "content_type": "text",
-      "title": 'Favorites',
-      "payload": 'favorites'
-    },
-    {
-      "content_type": "text",
-      "title": 'To invite a friend',
-      "payload": 'invite'
-    }
-  ]
+        "content_type": "text",
+        "title": 'My purchases',
+        "payload": 'purchases'
+      },
+      {
+        "content_type": "text",
+        "title": 'Shop',
+        "payload": 'shop'
+      },
+      {
+        "content_type": "text",
+        "title": 'Favorites',
+        "payload": 'favorites'
+      },
+      {
+        "content_type": "text",
+        "title": 'To invite a friend',
+        "payload": 'invite'
+      }
+    ]
   }
 
   // Quick replies constructor
-  quickRepliesBuilder(data, pageNumber, notNext) {
+  quickRepliesBuilder(data, pageNumber, modifier, notNext) {
     let page = pageNumber;
     let names = [];
     if (page > 1) {
       let back = {
         'content_type': 'text',
         'title': '<<< Prev',
-        'payload': `gotoCatalogPage=${page - 1}` 
+        'payload': modifier === 'catalog' ?
+          `gotoCatalogPage=${page - 1}` : modifier === 'favorite' ?
+          `goToFavoritePage=${page - 1}` : `goToProductsPage=${page - 1}`
       };
       names.push(back);
     }
@@ -52,15 +54,16 @@ class BotHelpers {
       let next = {
         'content_type': 'text',
         'title': 'Next >>>',
-        'payload': `gotoCatalogPage=${page + 1}`
+        'payload': modifier === 'catalog' ?
+          `gotoCatalogPage=${page + 1}` : modifier === 'favorite' ?
+          `goToFavoritePage=${page + 1}` : `goToProductsPage=${page + 1}`
       };
       names.push(next);
     }
     return names;
   }
-
   // Galery creator
-  createProductsGalery(data, marker) {
+  createProductsGalery(data, marker, page) {
     let names = [];
     data.forEach(item => {
       if (!item.images.length) {
@@ -83,8 +86,8 @@ class BotHelpers {
 
   // buttons for product galery
   createProductsButtons(data, item, marker) {
-    if(!marker){
-        return [{
+    if (!marker) {
+      return [{
           'type': 'postback',
           'title': data.length > 1 ? 'Detales' : 'Buy',
           'payload': data.length > 1 ? `product=${item.sku}` : 'share_number'
@@ -102,33 +105,33 @@ class BotHelpers {
       ];
     } else {
       return [{
-        'type': 'postback',
-        'title': 'Repeat?',
-        'payload': `product=${item.sku}`
-      },
-      {
-        'type': 'postback',
-        'title': 'Into my order',
-        'payload': 'purchases'
-      },
-      {
-        'type': 'postback',
-        'title': 'Main menu',
-        'payload': 'main_menu'
-      }
+          'type': 'postback',
+          'title': 'Repeat?',
+          'payload': `product=${item.sku}`
+        },
+        {
+          'type': 'postback',
+          'title': 'Into my order',
+          'payload': 'purchases'
+        },
+        {
+          'type': 'postback',
+          'title': 'Main menu',
+          'payload': 'main_menu'
+        }
       ];
     }
 
   }
 
-    // Create favorite galery
-    createFavoriteGalery(data) {
-      let elements = [];
-      data.forEach(item => {
-        let content = {
-          'title': item.name,
-          'image_url': item.image,
-          'buttons': [{
+  // Create favorite galery
+  createFavoriteGalery(data) {
+    let elements = [];
+    data.forEach(item => {
+      let content = {
+        'title': item.name,
+        'image_url': item.image,
+        'buttons': [{
             'type': 'postback',
             'title': 'Detales',
             'payload': `product=${item.sku}`
@@ -143,15 +146,15 @@ class BotHelpers {
             'title': 'Delete',
             'payload': `delete=${item.sku}`
           }
-          ]
-        };
-        elements.push(content);
-      });
-      return elements;
-    }
-    
-   // List of purchases constructor
-   getMyPurchases(data, prchOffset, notNext) {
+        ]
+      };
+      elements.push(content);
+    });
+    return elements;
+  }
+
+  // List of purchases constructor
+  getMyPurchases(data, prchOffset, notNext) {
     let names = [];
     if (prchOffset >= 8) {
       let back = {
@@ -191,33 +194,33 @@ class BotHelpers {
           'title': message,
           'image_url': 'https://2.bp.blogspot.com/-8v7aOaOmiK4/XNLOIXYnXHI/AAAAAAAACBI/oCLnsh869dIaIo5F9JKABIk-pFVoDchGgCLcBGAs/s1600/gefeliciteerd-met-de-wenskaart_53876-82116.jpg',
           'buttons': [{
-            'type': 'postback',
-            'title': 'Get referral bonus',
-            'payload': 'ref_bonus'
-          },
-          {
-            'type': 'postback',
-            'title': 'Main menu',
-            'payload': 'main_menu'
-          }
+              'type': 'postback',
+              'title': 'Get referral bonus',
+              'payload': 'ref_bonus'
+            },
+            {
+              'type': 'postback',
+              'title': 'Main menu',
+              'payload': 'main_menu'
+            }
           ]
         }]
       }
     };
   }
 
-    //Rate the product
-    rating() {
-      let replies = [];
-      for (let i = 0; i <= 10; i++) {
-        replies.push({
-          'content_type': 'text',
-          'title': `${i}`,
-          'payload': `rate=${i}`
-        });
-      }
-      return replies;
+  //Rate the product
+  rating() {
+    let replies = [];
+    for (let i = 0; i <= 10; i++) {
+      replies.push({
+        'content_type': 'text',
+        'title': `${i}`,
+        'payload': `rate=${i}`
+      });
     }
+    return replies;
+  }
 
 }
 
