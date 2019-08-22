@@ -20,13 +20,9 @@ let BOT_CONFIG = {
 
 module.exports = controller => {
 
-  controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'facebook_postback', async (bot, message) => {
-    let FBuser;
-    const [err, data] = await to(bot.getMessageUser(message));
+  controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'message_received,facebook_postback', async (bot, message) => {
+    let [err, FBuser] = await to(bot.getMessageUser(message));
     if (err) FBuser = '';
-    else {
-      FBuser = data
-    };
     if (message.referral) {
       console.log('ref2')
       const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
