@@ -33,7 +33,7 @@ const botkit = require('botkit');
 
 const controller = botkit.facebookbot({
   verify_token: process.env.VERIFY_TOKEN,
-  access_token: process.env.ACCESS_TOKEN,
+  access_token: 'EAAGGcstxntIBABGpSyPiBJ30TZAofwYB3RzuMlhimVob9u30QdH7LRaWrCsIuoSbjkUyr3ih5SaZBkDCJwnkMbax5dsQ2N0ZAVeRx4Y7BMaZAZCImgcehksdY0ZBhfZBsOiNPMCUnR5WKWnZBhdm9zA1UD5GPWlqEnMMa7DcDafZBRgZDZD',
   stats_optout: true
 });
 
