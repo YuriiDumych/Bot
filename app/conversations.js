@@ -15,7 +15,8 @@ let BOT_CONFIG = {
   product: {},
   catalogPageNumber: 1,
   productsPageNumber: 1,
-  productId: ''
+  productId: '',
+  dismiss: true
 };
 
 module.exports = controller => {
