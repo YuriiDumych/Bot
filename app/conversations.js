@@ -21,11 +21,14 @@ let BOT_CONFIG = {
 
 module.exports = controller => {
 
+<<<<<<< Updated upstream
   controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'message_received,facebook_postback', async (bot, message) => {
     let [err, FBuser] = await to(bot.getMessageUser(message));
     if (err) FBuser = '';
+=======
+  controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'facebook_postback', async (bot, message) => {
+>>>>>>> Stashed changes
     if (message.referral) {
-      console.log('ref2')
       const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
       if(err){
         bot.reply(message, {
@@ -49,12 +52,11 @@ module.exports = controller => {
               text: errorHelpers.dbError(err)
             });
           } else{
-            referrals(FBuser, bot, message, 'ref');
+            referrals(bot, message, 'ref');
           }
         }
       }
     } else {
-      console.log('ref')
       const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
       if(err){
         bot.reply(message, {
@@ -68,12 +70,12 @@ module.exports = controller => {
           });
         } else {
           bot.reply(message, {
-            text: `Hi, ${FBuser.first_name}!`,
+            text: `Hi!`,
             quick_replies: helpers.greetingMenu()
           });
         }
       } else {
-        referrals(FBuser, bot, message, 'notRef');
+        referrals(bot, message, 'notRef');
       }
     }
   })
@@ -435,7 +437,7 @@ async function getMyPurchases(bot, message, prchOffset) {
 }
 
 ///// Referrals /////
-async function referrals(FBuser, bot, message, keyword) {
+async function referrals(bot, message, keyword) {
   const [err, referrals] = await to(db.getReferrals(keyword === 'ref' ? message.referral.ref : message.sender.id));
   if (err) {
     bot.reply(message, {
@@ -452,18 +454,18 @@ async function referrals(FBuser, bot, message, keyword) {
         });
       }
       bot.reply(message, {
-        attachment: helpers.congrats(`Hi, ${FBuser.first_name}, congrats! You have activated promo link. Get some bonuses!`)
+        attachment: helpers.congrats(`Hi, congrats! You have activated promo link. Get some bonuses!`)
       });
     } else {
       if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
       if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
         BOT_CONFIG.dismiss = false;
         bot.reply(message, {
-          attachment: helpers.congrats(`Congratulations, ${FBuser.first_name}, you have involved 3 new user. Get a product for free!`)
+          attachment: helpers.congrats(`Congratulations, you have involved 3 new user. Get a product for free!`)
         });
       } else {
         bot.reply(message, {
-          text: `Welcome back, ${FBuser.first_name}! Nice to see you again!`,
+          text: `Welcome back! Nice to see you again!`,
           quick_replies: helpers.greetingMenu()
         });
       }
