@@ -21,13 +21,7 @@ let BOT_CONFIG = {
 
 module.exports = controller => {
 
-<<<<<<< Updated upstream
-  controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'message_received,facebook_postback', async (bot, message) => {
-    let [err, FBuser] = await to(bot.getMessageUser(message));
-    if (err) FBuser = '';
-=======
   controller.hears(['GET_STARTED', 'Почати', 'Get Started'], 'facebook_postback', async (bot, message) => {
->>>>>>> Stashed changes
     if (message.referral) {
       const [err, user] = await to(db.areYouReferralFirstTime(message.sender.id))
       if(err){
