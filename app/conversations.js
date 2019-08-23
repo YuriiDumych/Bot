@@ -15,8 +15,7 @@ let BOT_CONFIG = {
   product: {},
   catalogPageNumber: 1,
   productsPageNumber: 1,
-  productId: '',
-  dismiss: true
+  productId: ''
 };
 
 module.exports = controller => {
@@ -440,20 +439,17 @@ async function referrals(bot, message, keyword) {
   } else {
     let refCounter = referrals.referrals.length;
     if (keyword === 'ref') {
-      if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
-      if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
+      if (refCounter !== 0 && refCounter % 3 === 0) {
         bot.say({
           channel: message.referral.ref,
-          text: `Congratulations, you have involved 3 new user\nNavigate to "Main menu" to get your bonus`
+          text: `Congratulations, you have involved 3 new user`
         });
       }
       bot.reply(message, {
         attachment: helpers.congrats(`Hi, congrats! You have activated promo link. Get some bonuses!`)
       });
     } else {
-      if (refCounter % 3 !== 0) BOT_CONFIG.dismiss = true;
-      if (refCounter !== 0 && refCounter % 3 === 0 && BOT_CONFIG.dismiss) {
-        BOT_CONFIG.dismiss = false;
+      if (refCounter !== 0 && refCounter % 3 === 0) {
         bot.reply(message, {
           attachment: helpers.congrats(`Congratulations, you have involved 3 new user. Get a product for free!`)
         });
